@@ -9,20 +9,20 @@ spec:
       role: bgp-node
   bgpInstances:
   - name: "instance-65064"
-    localASN: 65050
+    localASN: 65064
     peers:
-    - name: "peer-65002-t0-edge1"
-      peerASN: 65002
+    - name: "peer-65064-t0-edge1"
+      peerASN: 65003
       peerAddress: 10.5.64.5
       peerConfigRef:
         name: "cilium-peer"
-    - name: "peer-65002-t0-edge2"
-      peerASN: 65002
+    - name: "peer-65064-t0-edge2"
+      peerASN: 65003
       peerAddress: 10.5.64.6
       peerConfigRef:
         name: "cilium-peer"
-    - name: "peer-65002-t0-edge3"
-      peerASN: 65002
+    - name: "peer-65064-t0-edge3"
+      peerASN: 65003
       peerAddress: 10.5.64.7
       peerConfigRef:
         name: "cilium-peer"
