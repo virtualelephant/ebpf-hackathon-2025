@@ -14,7 +14,7 @@ Teams need a proven pattern to:
 
 ![logical diagram](images/eBPF%20Hackathon%20Diagram.png)
 
-### What we've built
+## What This Builds
 A reference architecture that **coexists**, not replaces:
 
 **NSX-T (north-south):**
@@ -29,3 +29,6 @@ A reference architecture that **coexists**, not replaces:
 **Automation plane:**
 - ArgoCD in the prod cluster deploys to dev & stage over tightly scoped access to :6443.
 - Ansible is the only SSH/API actor permitted into dev/stage segments.
+
+## Why This Matters
+This delivers a **repeatable, audit-ready blueprint** for brownfield enterprises: Kubernetes-native security and observability, without abandoning NSX-T. It aligns platform, network, and security teams around a clear split of responsibilities: **NSX-T for north-south**; **Cilium for east-west/app-aware**.

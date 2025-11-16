@@ -2,14 +2,14 @@
 apiVersion: cilium.io/v2
 kind: CiliumLoadBalancerIPPool
 metadata:
-  name: lb-pool-dev
+  name: lb-pool-stage
 spec:
   allowFirstLastIPs: "No"
   blocks:
-    - cidr: 10.5.65.0/24
+    - cidr: 10.5.73.0/24
   # Only allocate to Services labeled into this pool
   serviceSelector:
     matchExpressions:
       - key: lb.cilium.io/pool
         operator: In
-        values: ["dev"]
+        values: ["stage"]
