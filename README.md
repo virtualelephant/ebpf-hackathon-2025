@@ -12,4 +12,4 @@ Teams need a proven pattern to:
 
 ### Logical Diagram
 
-![alt text](images/eBPF%20Hackathon%20Diagrams.png)
+![alt text](images/eBPF%20Hackathon%20Diagram.png)
