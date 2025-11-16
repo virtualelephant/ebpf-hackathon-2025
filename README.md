@@ -31,4 +31,4 @@ A reference architecture that **coexists**, not replaces:
 - Ansible is the only SSH/API actor permitted into dev/stage segments.
 
 ## Why This Matters
-This delivers a **repeatable, audit-ready blueprint** for brownfield enterprises: Kubernetes-native security and observability, without abandoning NSX-T. It aligns platform, network, and security teams around a clear split of responsibilities: **NSX-T for north-south**; **Cilium for east-west/app-aware**.
+This delivers a **repeatable, audit-ready blueprint** for enterprises wanting a world-class private cloud with VM and Kubernetes workloads: Kubernetes-native security and observability, without abandoning NSX-T. It aligns platform, network, and security teams around a clear split of responsibilities: **NSX-T for north-south**; **Cilium for east-west/app-aware**.

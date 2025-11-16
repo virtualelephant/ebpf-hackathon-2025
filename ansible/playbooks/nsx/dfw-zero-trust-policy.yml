@@ -1,0 +1,212 @@
+# ---
+# Title: NSX-T - Zero-Trust DFW Policy for Segment
+#
+# Description:
+#   This playbook creates a zero-trust Distributed Firewall (DFW) policy
+#   in NSX-T for a specific segment. It:
+#
+#     - Allows all egress traffic from the segment
+#     - Allows ingress SSH (TCP/22) only from the Ansible host (10.5.0.10)
+#     - Allows ingress HTTPS (TCP/443) only from the ArgoCD host (10.5.51.8)
+#     - Allows ingress HTTP/HTTPS (TCP/80,443) from anywhere
+#     - Denies all other ingress traffic to the segment
+#
+# Usage:
+#   Basic run:
+#     ansible-playbook \
+#       -i inventories/inventory.ini \
+#       ansible/playbooks/nsxt/dfw_zero_trust_segment.yml
+#
+#   Override the target segment:
+#     ansible-playbook \
+#       -i inventories/inventory.ini \
+#       ansible/playbooks/nsxt/dfw_zero_trust_segment.yml \
+#       -e segment_name=k8s-app-seg-02
+#
+# Examples:
+#   1) Apply policy to default segment (k8s-app-seg-01):
+#        ansible-playbook \
+#          -i inventories/inventory.ini \
+#          ansible/playbooks/nsxt/dfw_zero_trust_segment.yml
+#
+#   2) Dry-run (if you want to see changes first):
+#        ansible-playbook \
+#          -i inventories/inventory.ini \
+#          ansible/playbooks/nsxt/dfw_zero_trust_segment.yml \
+#          --check --diff
+#
+# Requirements:
+#   - vmware.nsxt Ansible collection installed:
+#       ansible-galaxy collection install vmware.nsxt
+#   - Ansible Vault file with NSX-T credentials, e.g.:
+#       ansible/vars/nsxt_credentials.yml
+#     containing `nsxt_password` (encrypted).
+#
+# ---
+
+---
+- name: Configure zero-trust DFW policy for a specific NSX-T segment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  # Adjust this path to wherever you keep your vaulted credentials
+  vars_files:
+    - ../../vars/nsxt_credentials.yml
+
+  vars:
+    # --- NSX-T connection details ---
+    nsxt_hostname: "nsx01.home.virtualelephant.com"
+    nsxt_username: "admin"
+    # nsxt_password is loaded securely from Ansible Vault via vars_files
+    validate_certs: false
+
+    # --- Target segment / domain ---
+    nsxt_domain: "default"
+    segment_name: "k8s-app-seg-01"         # <== override with -e if needed
+    segment_group_name: "grp-seg-{{ segment_name }}"
+
+    # --- Source IPs ---
+    ansible_host_ip: "10.5.0.10"          # Ansible host
+    argocd_host_ip: "10.5.51.8"           # ArgoCD host
+
+    ansible_group_name: "grp-src-ansible-10-5-0-10"
+    argocd_group_name: "grp-src-argocd-10-5-51-8"
+
+    # --- DFW Policy ---
+    dfw_policy_name: "dfw-zero-trust-{{ segment_name }}"
+    dfw_category: "Application"           # Usually Application/Environment; adjust if needed
+
+    # --- Service paths (built-in NSX-T services) ---
+    nsxt_service_http: "/infra/services/HTTP"
+    nsxt_service_https: "/infra/services/HTTPS"
+    nsxt_service_ssh: "/infra/services/SSH"
+
+  tasks:
+    - name: Ensure group for target segment exists
+      vmware.nsxt.nsxt_policy_group:
+        hostname: "{{ nsxt_hostname }}"
+        username: "{{ nsxt_username }}"
+        password: "{{ nsxt_password }}"
+        validate_certs: "{{ validate_certs }}"
+        domain_id: "{{ nsxt_domain }}"
+        display_name: "{{ segment_group_name }}"
+        state: present
+        expression:
+          - resource_type: "PathExpression"
+            paths:
+              - "/infra/segments/{{ segment_name }}"
+
+    - name: Ensure group for Ansible source host exists
+      vmware.nsxt.nsxt_policy_group:
+        hostname: "{{ nsxt_hostname }}"
+        username: "{{ nsxt_username }}"
+        password: "{{ nsxt_password }}"
+        validate_certs: "{{ validate_certs }}"
+        domain_id: "{{ nsxt_domain }}"
+        display_name: "{{ ansible_group_name }}"
+        state: present
+        expression:
+          - resource_type: "IPAddressExpression"
+            ip_addresses:
+              - "{{ ansible_host_ip }}"
+
+    - name: Ensure group for ArgoCD source host exists
+      vmware.nsxt.nsxt_policy_group:
+        hostname: "{{ nsxt_hostname }}"
+        username: "{{ nsxt_username }}"
+        password: "{{ nsxt_password }}"
+        validate_certs: "{{ validate_certs }}"
+        domain_id: "{{ nsxt_domain }}"
+        display_name: "{{ argocd_group_name }}"
+        state: present
+        expression:
+          - resource_type: "IPAddressExpression"
+            ip_addresses:
+              - "{{ argocd_host_ip }}"
+
+    - name: Create zero-trust DFW policy for the segment
+      vmware.nsxt.nsxt_policy_security_policy:
+        hostname: "{{ nsxt_hostname }}"
+        username: "{{ nsxt_username }}"
+        password: "{{ nsxt_password }}"
+        validate_certs: "{{ validate_certs }}"
+        domain_id: "{{ nsxt_domain }}"
+        state: present
+
+        display_name: "{{ dfw_policy_name }}"
+        category: "{{ dfw_category }}"
+        locked: false
+        stateful: true
+        tcp_strict: true
+
+        # Scope the policy to workloads attached to the segment group
+        scope:
+          - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
+
+        rules:
+          # 1) Allow all egress traffic from the segment
+          - display_name: "01-allow-egress-all"
+            sequence_number: 10
+            action: "ALLOW"
+            direction: "OUT"
+            services:
+              - "ANY"
+            source_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
+            destination_groups:
+              - "ANY"
+            logged: true
+
+          # 2) Allow ingress SSH (22/TCP) from Ansible host IP
+          - display_name: "02-allow-ingress-ssh-from-ansible"
+            sequence_number: 20
+            action: "ALLOW"
+            direction: "IN"
+            services:
+              - "{{ nsxt_service_ssh }}"
+            source_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ ansible_group_name }}"
+            destination_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
+            logged: true
+
+          # 3) Allow ingress HTTPS (443/TCP) from ArgoCD host IP
+          - display_name: "03-allow-ingress-https-from-argocd"
+            sequence_number: 30
+            action: "ALLOW"
+            direction: "IN"
+            services:
+              - "{{ nsxt_service_https }}"
+            source_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ argocd_group_name }}"
+            destination_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
+            logged: true
+
+          # 4) Allow ingress HTTP/HTTPS (80,443/TCP) from anywhere
+          - display_name: "04-allow-ingress-http-https-from-any"
+            sequence_number: 40
+            action: "ALLOW"
+            direction: "IN"
+            services:
+              - "{{ nsxt_service_http }}"
+              - "{{ nsxt_service_https }}"
+            source_groups:
+              - "ANY"
+            destination_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
+            logged: true
+
+          # 5) Deny all other ingress traffic to the segment
+          - display_name: "99-deny-all-other-ingress"
+            sequence_number: 99
+            action: "DROP"
+            direction: "IN"
+            services:
+              - "ANY"
+            source_groups:
+              - "ANY"
+            destination_groups:
+              - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
+            logged: true
