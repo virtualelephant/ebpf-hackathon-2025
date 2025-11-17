@@ -1,0 +1,14 @@
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: nsx-seg-l2-announcements
+  namespace: kube-system
+spec:
+  nodeSelector:
+    matchLabels:
+      role: bgp-node
+  serviceSelector:
+    matchLabels:
+      ve.lb-type: "public"
+  loadBalancerIPs: true
