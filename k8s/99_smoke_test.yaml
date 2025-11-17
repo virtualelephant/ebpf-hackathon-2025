@@ -23,7 +23,7 @@ metadata:
   name: echo
   namespace: default
   labels:
-    lb.cilium.io/pool: dc1
+    lb.cilium.io/pool: dev
     ve.lb-type: "public"
 spec:
   type: LoadBalancer
