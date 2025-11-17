@@ -7,7 +7,7 @@
 #
 #     - Allows all egress traffic from the segment
 #     - Allows ingress SSH (TCP/22) only from the Ansible host (10.5.0.10)
-#     - Allows ingress HTTPS (TCP/443) only from the ArgoCD host (10.5.51.8)
+#     - Allows ingress HTTPS (TCP/9443) only from the ArgoCD host (10.5.51.8)
 #     - Allows ingress HTTP/HTTPS (TCP/80,443) from anywhere
 #     - Denies all other ingress traffic to the segment
 #
@@ -81,6 +81,7 @@
     nsxt_service_http: "/infra/services/HTTP"
     nsxt_service_https: "/infra/services/HTTPS"
     nsxt_service_ssh: "/infra/services/SSH"
+    nsxt_service_argocd: "6443"
 
   tasks:
     - name: Ensure group for target segment exists
@@ -171,13 +172,13 @@
               - "/infra/domains/{{ nsxt_domain }}/groups/{{ segment_group_name }}"
             logged: true
 
-          # 3) Allow ingress HTTPS (443/TCP) from ArgoCD host IP
+          # 3) Allow ingress HTTPS (6443/TCP) from ArgoCD host IP
           - display_name: "03-allow-ingress-https-from-argocd"
             sequence_number: 30
             action: "ALLOW"
             direction: "IN"
             services:
-              - "{{ nsxt_service_https }}"
+              - "{{ nsxt_service_argocd }}"
             source_groups:
               - "/infra/domains/{{ nsxt_domain }}/groups/{{ argocd_group_name }}"
             destination_groups:
